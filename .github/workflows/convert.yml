@@ -1,0 +1,49 @@
+name: Build NES ROM
+
+permissions:
+  contents: write
+
+on:
+  push:
+    paths:
+      - 'gfx/*.png'
+      - 'src/*.asm'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install Pillow
+
+      - name: Create build directory
+        run: mkdir -p build
+
+      - name: Run conversion script (PNG to CHR)
+        run: python tools/png_to_chr.py "gfx/NES - Battle City (JPN) - Miscellaneous - General Sprites.png" "build/sprites.chr"
+
+      - name: Install cc65 (Assembler)
+        run: sudo apt-get update && sudo apt-get install -y cc65
+
+      - name: Compile NES ROM
+        run: |
+          ca65 src/main.asm -o build/main.o
+          ld65 -C src/nes.cfg build/main.o -o build/game_prg.nes
+          cat build/game_prg.nes build/sprites.chr > build/game.nes
+
+      - name: Commit and push generated files
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add build/sprites.chr build/game.nes
+          git commit -m "Auto-build NES ROM and CHR" || echo "No changes to commit"
+          git push
