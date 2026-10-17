@@ -1,0 +1,35 @@
+name: Convert PNG to CHR
+
+on:
+  push:
+    paths:
+      - 'gfx/*.png'
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install Pillow
+
+      - name: Create build directory
+        run: mkdir -p build
+
+      - name: Run conversion script
+        run: python tools/png_to_chr.py "gfx/NES - Battle City (JPN) - Miscellaneous - General Sprites.png" "build/sprites.chr"
+
+      - name: Commit and push CHR file
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add build/sprites.chr
+          git commit -m "Auto-convert PNG to CHR" || echo "No changes to commit"
+          git push
