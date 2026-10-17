@@ -41,10 +41,50 @@ vblankwait2:
   bit $2002
   bpl vblankwait2
 
+; PPU ni sozlash
+load_palettes:
+  lda $2002             ; PPUSTATUS ni o'qib, manzilni reset qilamiz
+  lda #$3F              ; Palitra manzilining yuqori bayti ($3F00)
+  sta $2006
+  lda #$00              ; Palitra manzilining pastki bayti ($00)
+  sta $2006
+
+  ldx #$00
+load_palettes_loop:
+  lda palettes, x
+  sta $2007
+  inx
+  cpx #$20              ; 32 bayt palitra yuklaymiz
+  bne load_palettes_loop
+
+; NMI (VBlank) ni yoqish
+  lda #%10000000        ; NMI ni yoqish
+  sta $2000
+  lda #%00011110        ; Fon (Background) va Spritelarni yoqish
+  sta $2001
+
 forever:
   jmp forever
 
+; NMI (Har bir kadr yangilanishida ishlaydi)
+nmi:
+  ; Hozircha bu yerda hech narsa qilmaymiz
+  rti
+
+; Palitralar ma'lumotlari
+palettes:
+  ; Fon palitrasi (Fon rangi, va 3 ta rang)
+  .byte $21, $11, $21, $31   ; Ko'k fon
+  .byte $21, $11, $21, $31
+  .byte $21, $11, $21, $31
+  .byte $21, $11, $21, $31
+  ; Sprite palitrasi
+  .byte $21, $11, $21, $31
+  .byte $21, $11, $21, $31
+  .byte $21, $11, $21, $31
+  .byte $21, $11, $21, $31
+
 .segment "VECTORS"
-  .word 0         ; NMI
+  .word nmi       ; NMI
   .word reset     ; RESET
   .word 0         ; IRQ
