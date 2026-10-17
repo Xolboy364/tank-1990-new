@@ -1,23 +1,23 @@
 ; NES iNES Header
 .segment "HEADER"
   .byte "NES", $1A
-  .byte 2         ; 2 x 16KB PRG ROM (Jami 32KB)
+  .byte 2         ; 2 x 16KB PRG ROM
   .byte 1         ; 1 x 8KB CHR ROM
   .byte $00, $00  ; Mapper 0
   .byte 0, 0, 0, 0, 0, 0, 0, 0
 
 .segment "CODE"
 reset:
-  sei             ; IRQ o'chirish
-  cld             ; Decimal rejimni o'chirish
+  sei
+  cld
   ldx #$40
-  stx $4017       ; APU frame counter o'chirish
+  stx $4017
   ldx #$FF
-  txs             ; Stack pointerni sozlash
+  txs
   inx
-  stx $2000       ; NMI o'chirish
-  stx $2001       ; Rendering o'chirish
-  stx $4010       ; DMC IRQ o'chirish
+  stx $2000
+  stx $2001
+  stx $4010
 
 vblankwait1:
   bit $2002
@@ -41,50 +41,61 @@ vblankwait2:
   bit $2002
   bpl vblankwait2
 
-; PPU ni sozlash
+; 1. Palitrani yuklash
 load_palettes:
-  lda $2002             ; PPUSTATUS ni o'qib, manzilni reset qilamiz
-  lda #$3F              ; Palitra manzilining yuqori bayti ($3F00)
+  lda $2002
+  lda #$3F
   sta $2006
-  lda #$00              ; Palitra manzilining pastki bayti ($00)
+  lda #$00
   sta $2006
-
   ldx #$00
 load_palettes_loop:
   lda palettes, x
   sta $2007
   inx
-  cpx #$20              ; 32 bayt palitra yuklaymiz
+  cpx #$20
   bne load_palettes_loop
 
-; NMI (VBlank) ni yoqish
-  lda #%10000000        ; NMI ni yoqish
+; 2. Ekran xotirasini (Nametable) tozalash
+clear_nametable:
+  lda $2002
+  lda #$20
+  sta $2006
+  lda #$00
+  sta $2006
+  lda #$00
+  ldx #$00
+  ldy #$04
+clear_loop:
+  sta $2007
+  dex
+  bne clear_loop
+  dey
+  bne clear_loop
+
+; 3. NMI ni yoqish va Fon rasmini O'CHIRISH (faqat rang ko'rinadi)
+  lda #%10000000        ; NMI ON
   sta $2000
-  lda #%00011110        ; Fon (Background) va Spritelarni yoqish
+  lda #%00000110        ; Sprites ON, Background OFF (Ekran toza rangga o'tadi)
   sta $2001
 
 forever:
   jmp forever
 
-; NMI (Har bir kadr yangilanishida ishlaydi)
 nmi:
-  ; Hozircha bu yerda hech narsa qilmaymiz
   rti
 
-; Palitralar ma'lumotlari
 palettes:
-  ; Fon palitrasi (Fon rangi, va 3 ta rang)
-  .byte $21, $11, $21, $31   ; Ko'k fon
   .byte $21, $11, $21, $31
   .byte $21, $11, $21, $31
   .byte $21, $11, $21, $31
-  ; Sprite palitrasi
+  .byte $21, $11, $21, $31
   .byte $21, $11, $21, $31
   .byte $21, $11, $21, $31
   .byte $21, $11, $21, $31
   .byte $21, $11, $21, $31
 
 .segment "VECTORS"
-  .word nmi       ; NMI
-  .word reset     ; RESET
-  .word 0         ; IRQ
+  .word nmi
+  .word reset
+  .word 0
