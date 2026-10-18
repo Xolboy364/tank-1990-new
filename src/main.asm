@@ -20,14 +20,15 @@ reset:
   ldx #$FF
   txs
   inx
-  stx $2000
-  stx $2001
+  stx $2000       ; NMI o'chirildi
+  stx $2001       ; Rendering o'chirildi
   stx $4010
 
 vblank1:
   bit $2002
   bpl vblank1
 
+; Xotirani tozalash (RAM va OAM)
 clrmem:
   lda #$00
   sta $0000, x
@@ -37,7 +38,7 @@ clrmem:
   sta $0500, x
   sta $0600, x
   sta $0700, x
-  lda #$FE
+  lda #$FE        ; Sprite'larni yashirish
   sta $0200, x
   inx
   bne clrmem
@@ -46,7 +47,7 @@ vblank2:
   bit $2002
   bpl vblank2
 
-; 1. Palitrani yuklash (Fon rangi QIZIL bo'ladi)
+; 1. Palitrani yuklash (Fon rangi QIZIL, Sprite sariq)
   lda #$3F
   sta $2006
   lda #$00
@@ -59,13 +60,28 @@ load_pal:
   cpx #$20
   bne load_pal
 
-; 2. Tank koordinatalari
+; 2. EKRAN XOTIRASINI TOZALASH (O'sha ko'k to'rlarni yo'q qilish)
+  lda #$20
+  sta $2006
+  lda #$00
+  sta $2006
+  lda #$00
+  ldx #$00
+  ldy #$04
+clear_nametable:
+  sta $2007       ; $00 (bo'sh) yozamiz
+  dex
+  bne clear_nametable
+  dey
+  bne clear_nametable
+
+; 3. Tank koordinatalari
   lda #120
   sta player_x
   lda #100
   sta player_y
 
-; 3. Tank bo'laklari
+; 4. Tank bo'laklari (Tile)
   lda #$00
   sta $0201
   lda #$01
@@ -75,21 +91,22 @@ load_pal:
   lda #$11
   sta $020D
 
-  lda #$00
+  lda #$00        ; Palitra 0
   sta $0202
   sta $0206
   sta $020A
   sta $020E
 
-; 4. Ekranni yoqish (Fon 100% O'CHIRILGAN, faqat Sprite'lar)
+; 5. Ekranni yoqish (Faqat Sprite'lar, Fon o'chirilgan)
   lda #%10000000  
   sta $2000
-  lda #%00010100  ; Fon (BG) o'chirildi, Sprite yoqildi
+  lda #%00010100  ; Fon(BG) OFF, Sprite ON (Shunda faqat qizil fon va tank ko'rinadi)
   sta $2001
 
 main_loop:
   jmp main_loop
 
+; --- NMI ---
 nmi:
   lda #$00
   sta $2003
@@ -129,6 +146,7 @@ check_right:
   inc player_x
 
 update_sprites:
+  ; Tank 4 ta bo'lagini koordinatalarini yangilash
   lda player_y
   sta $0200
   lda player_x
@@ -159,14 +177,13 @@ update_sprites:
 
   rti
 
+; --- Palitralar ---
 palettes:
-  ; Fon palitrasi (Qizil rang: $16)
+  .byte $16, $16, $16, $16   ; Fon rangi QIZIL ($16)
   .byte $16, $16, $16, $16
   .byte $16, $16, $16, $16
   .byte $16, $16, $16, $16
-  .byte $16, $16, $16, $16
-  ; Sprite palitrasi
-  .byte $0F, $28, $18, $38
+  .byte $0F, $28, $18, $38   ; Sprite rangi (Sariq)
   .byte $0F, $28, $18, $38
   .byte $0F, $28, $18, $38
   .byte $0F, $28, $18, $38
