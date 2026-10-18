@@ -17,15 +17,39 @@ buttons:    .res 1
 reset:
   sei
   cld
+  ldx #$40
+  stx $4017       ; APU frame counter o'chirish
   ldx #$FF
-  txs
-  
-  ; PPU o'chirilganini kutish
+  txs             ; Stack pointerni sozlash
+  inx
+  stx $2000       ; NMI o'chirish
+  stx $2001       ; Rendering o'chirish
+  stx $4010       ; DMC IRQ o'chirish
+
 vblank1:
   bit $2002
   bpl vblank1
 
-  ; 1. Palitrani yuklash
+; Xotirani tozalash (RAM va OAM)
+clrmem:
+  lda #$00
+  sta $0000, x
+  sta $0100, x
+  sta $0300, x
+  sta $0400, x
+  sta $0500, x
+  sta $0600, x
+  sta $0700, x
+  lda #$FE        ; Sprite'larni ekrandan tashqariga (Y=$FE) yashirish
+  sta $0200, x
+  inx
+  bne clrmem
+
+vblank2:
+  bit $2002
+  bpl vblank2
+
+; 1. Palitrani yuklash
   lda #$3F
   sta $2006
   lda #$00
@@ -38,52 +62,33 @@ load_pal:
   cpx #$20
   bne load_pal
 
-  ; 2. Fon xotirasini tozalash (Ekran butunlay qora bo'ladi)
-  lda #$20
-  sta $2006
-  lda #$00
-  sta $2006
-  ldx #$00
-  ldy #$04
-clear_nametable:
-  lda #$00        ; 0-tile ni yozamiz
-  sta $2007
-  dex
-  bne clear_nametable
-  dey
-  bne clear_nametable
-
-  ; 3. Tankning boshlang'ich koordinatalari
+; 2. Tankning boshlang'ich koordinatalari
   lda #120
   sta player_x
   lda #100
   sta player_y
 
-  ; 4. Tankning 4 ta bo'lagini (tile) sozlash
-  ; Yuqori chap
+; 3. Tankning 4 ta bo'lagi (Tile) raqamlarini sozlash
   lda #$00
-  sta $0201
-  ; Yuqori o'ng
+  sta $0201       ; Yuqori chap
   lda #$01
-  sta $0205
-  ; Pastki chap
+  sta $0205       ; Yuqori o'ng
   lda #$10
-  sta $0209
-  ; Pastki o'ng
+  sta $0209       ; Pastki chap
   lda #$11
-  sta $020D
+  sta $020D       ; Pastki o'ng
 
-  ; Tank rangi (Palitra)
+; Rang palitrasi (0 - sariq tank)
   lda #$00
   sta $0202
   sta $0206
   sta $020A
   sta $020E
 
-  ; Ekranni yoqish (Fon va Spritelar)
-  lda #%10000000
-  sta $2000
-  lda #%00011110
+; 4. Ekranni yoqish (NMI va Spritelar ON, Fon OFF)
+  lda #%10000000  
+  sta $2000       ; NMI yoqildi
+  lda #%00010100  ; Spritelar YOQILDI, Fon O'CHIRILDI (To'rlar yo'qoladi)
   sta $2001
 
 main_loop:
@@ -133,13 +138,13 @@ check_right:
 
 update_sprites:
   ; Tankning 4 ta bo'lagini koordinatalarini yangilash
-  ; Yuqori chap (X, Y)
+  ; Yuqori chap
   lda player_y
   sta $0200
   lda player_x
   sta $0203
 
-  ; Yuqori o'ng (X+8, Y)
+  ; Yuqori o'ng
   lda player_y
   sta $0204
   lda player_x
@@ -147,7 +152,7 @@ update_sprites:
   adc #8
   sta $0207
 
-  ; Pastki chap (X, Y+8)
+  ; Pastki chap
   lda player_y
   clc
   adc #8
@@ -155,7 +160,7 @@ update_sprites:
   lda player_x
   sta $020B
 
-  ; Pastki o'ng (X+8, Y+8)
+  ; Pastki o'ng
   lda player_y
   clc
   adc #8
