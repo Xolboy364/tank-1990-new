@@ -6,14 +6,11 @@
   .byte $00, $00  ; Mapper 0
   .byte 0, 0, 0, 0, 0, 0, 0, 0
 
-.segment "CODE"
-
 ; --- Xotira o'zgaruvchilari ---
 .segment "ZEROPAGE"
 player_x:   .res 1
 player_y:   .res 1
 buttons:    .res 1
-frame_count: .res 1
 
 .segment "CODE"
 
@@ -24,12 +21,11 @@ reset:
   txs
   
   ; PPU o'chirilganini kutish
-  bit $2002
 vblank1:
   bit $2002
   bpl vblank1
 
-  ; Palitrani yuklash
+  ; 1. Palitrani yuklash
   lda #$3F
   sta $2006
   lda #$00
@@ -42,7 +38,7 @@ load_pal:
   cpx #$20
   bne load_pal
 
-  ; Xotirani tozalash (Nametable)
+  ; 2. Fon xotirasini tozalash (Ekran butunlay qora bo'ladi)
   lda #$20
   sta $2006
   lda #$00
@@ -50,23 +46,44 @@ load_pal:
   ldx #$00
   ldy #$04
 clear_nametable:
-  lda #$00
+  lda #$00        ; 0-tile ni yozamiz
   sta $2007
   dex
   bne clear_nametable
   dey
   bne clear_nametable
 
-  ; O'yinchi boshlang'ich koordinatalari (O'rtada)
-  lda #128
+  ; 3. Tankning boshlang'ich koordinatalari
+  lda #120
   sta player_x
-  lda #200
+  lda #100
   sta player_y
 
-  ; Ekranni yoqish
+  ; 4. Tankning 4 ta bo'lagini (tile) sozlash
+  ; Yuqori chap
+  lda #$00
+  sta $0201
+  ; Yuqori o'ng
+  lda #$01
+  sta $0205
+  ; Pastki chap
+  lda #$10
+  sta $0209
+  ; Pastki o'ng
+  lda #$11
+  sta $020D
+
+  ; Tank rangi (Palitra)
+  lda #$00
+  sta $0202
+  sta $0206
+  sta $020A
+  sta $020E
+
+  ; Ekranni yoqish (Fon va Spritelar)
   lda #%10000000
   sta $2000
-  lda #%00011110  ; Fon va Spritelar yoqildi
+  lda #%00011110
   sta $2001
 
 main_loop:
@@ -74,13 +91,13 @@ main_loop:
 
 ; --- NMI (Har bir kadrda ishlaydi) ---
 nmi:
-  ; 1. Spritelarni yangilash (OAM DMA)
+  ; OAM xotirasini yangilash (DMA)
   lda #$00
   sta $2003
   lda #$02
   sta $4014
 
-  ; 2. Kontrollerni o'qish
+  ; Kontrollerni o'qish
   lda #$01
   sta $4016
   lda #$00
@@ -93,7 +110,7 @@ read_controller:
   dex
   bne read_controller
 
-  ; 3. Harakatni tekshirish (D-pad)
+  ; Harakatni tekshirish (D-pad)
   lda buttons
   and #%00001000  ; Yuqoriga
   beq check_down
@@ -115,34 +132,53 @@ check_right:
   inc player_x
 
 update_sprites:
-  ; 4. Tankni (Sprite 0) chizish
+  ; Tankning 4 ta bo'lagini koordinatalarini yangilash
+  ; Yuqori chap (X, Y)
   lda player_y
-  sta $0200       ; Y koordinata
-  lda #$00        ; Tile raqami (0-tile - tank)
-  sta $0201
-  lda #$00        ; Atribut (palitra)
-  sta $0202
+  sta $0200
   lda player_x
-  sta $0203       ; X koordinata
+  sta $0203
 
-  ; Qolgan spritelarni yashirish (ekrandan tashqariga)
-  lda #$FF
+  ; Yuqori o'ng (X+8, Y)
+  lda player_y
   sta $0204
+  lda player_x
+  clc
+  adc #8
+  sta $0207
+
+  ; Pastki chap (X, Y+8)
+  lda player_y
+  clc
+  adc #8
   sta $0208
+  lda player_x
+  sta $020B
+
+  ; Pastki o'ng (X+8, Y+8)
+  lda player_y
+  clc
+  adc #8
   sta $020C
+  lda player_x
+  clc
+  adc #8
+  sta $020F
 
   rti
 
-; --- Ma'lumotlar ---
+; --- Palitralar ---
 palettes:
+  ; Fon palitrasi (Ko'k fon)
   .byte $21, $11, $21, $31
   .byte $21, $11, $21, $31
   .byte $21, $11, $21, $31
   .byte $21, $11, $21, $31
-  .byte $21, $11, $21, $31
-  .byte $21, $11, $21, $31
-  .byte $21, $11, $21, $31
-  .byte $21, $11, $21, $31
+  ; Sprite palitrasi (Sariq tank)
+  .byte $0F, $28, $18, $38
+  .byte $0F, $28, $18, $38
+  .byte $0F, $28, $18, $38
+  .byte $0F, $28, $18, $38
 
 .segment "VECTORS"
   .word nmi
